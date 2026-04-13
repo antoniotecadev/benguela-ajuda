@@ -879,7 +879,7 @@ export default function Home() {
             </div>
           )}
 
-          <section className="rounded-2xl mb-4 border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
+          <section className="rounded-2xl mb-4 p-3 sm:p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-2xl">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
