@@ -80,7 +80,7 @@ export default function Home() {
   const [items, setItems] = useState<Interaction[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [localFilter, setLocalFilter] = useState("TODOS");
   const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
   const [hideResolved, setHideResolved] = useState(true);
@@ -107,27 +107,13 @@ export default function Home() {
       return;
     }
 
-    let active = true;
-
-    signInAnonymously(auth)
-      .then(() => {
-        if (active) {
-          setAuthReady(true);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError("Falha ao autenticar anonimamente no Firebase.");
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+    signInAnonymously(auth).catch((e) => {
+      console.warn("Aviso Auth Anónima:", e.message);
+    });
   }, []);
 
   useEffect(() => {
-    if (!hasFirebaseConfig || !db || !authReady) {
+    if (!hasFirebaseConfig || !db) {
       return;
     }
 
@@ -144,20 +130,23 @@ export default function Home() {
 
         setItems(
           docs.sort((left, right) => {
-            const leftTime = left.createdAt?.seconds ?? 0;
-            const rightTime = right.createdAt?.seconds ?? 0;
+            const leftTime = left.createdAt?.seconds ?? Infinity;
+            const rightTime = right.createdAt?.seconds ?? Infinity;
 
             return rightTime - leftTime;
           }),
         );
+        setIsLoaded(true);
       },
-      () => {
+      (err) => {
+        console.error("Erro no mural:", err);
         setError("Nao foi possivel carregar os dados agora.");
+        setIsLoaded(true);
       },
     );
 
     return () => unsub();
-  }, [authReady]);
+  }, []);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -243,9 +232,9 @@ export default function Home() {
         </section>
       )}
 
-      {hasFirebaseConfig && !authReady && (
+      {hasFirebaseConfig && !isLoaded && (
         <section className="rounded-xl border border-slate-300 bg-white/80 p-4 text-sm text-slate-700">
-          A ligar ao Firebase...
+          A carregar o mural...
         </section>
       )}
 
