@@ -99,6 +99,12 @@ const STATUS_STYLES = {
 } as const;
 
 const PAGE_SIZE = 5;
+const AUTHOR_NAME = "António Teca";
+const AUTHOR_EMAIL = "antonioteca@hotmail.com";
+const AUTHOR_LOCATION = "Luanda";
+const AUTHOR_WHATSAPP = "932359808";
+const AUTHOR_WHATSAPP_LINK = buildWhatsAppLink(AUTHOR_WHATSAPP);
+const AUTHOR_42_LUANDA_LINK = "https://web.facebook.com/42luanda";
 
 function buildWhatsAppLink(raw: string) {
   const digits = raw.replace(/\D/g, "");
@@ -872,6 +878,55 @@ export default function Home() {
               </button>
             </div>
           )}
+
+          <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  Autor do site
+                </p>
+                <h2 className="mt-1 text-base font-semibold text-slate-900 sm:text-lg">
+                  {AUTHOR_NAME}
+                </h2>
+                <p className="mt-1.5 text-[8px] text-slate-600 sm:text-sm">
+                  Cadete {' '}
+                  <a
+                    href={AUTHOR_42_LUANDA_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-slate-900 underline decoration-slate-300 underline-offset-3 transition hover:decoration-slate-900"
+                  >
+                    42 Luanda
+                  </a>
+                  .
+                </p>
+              </div>
+
+              <div className="grid gap-1.5 sm:min-w-72">
+                <a
+                  href={`mailto:${AUTHOR_EMAIL}`}
+                  className="secondary-btn w-full justify-center px-2 py-1 text-[11px] leading-none sm:text-xs"
+                  style={{ padding: "0.35rem 0.5rem", fontSize: "0.68rem", lineHeight: 1.1 }}
+                >
+                  {AUTHOR_EMAIL}
+                </a>
+                {AUTHOR_WHATSAPP_LINK && (
+                  <a
+                    href={AUTHOR_WHATSAPP_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="whatsapp-btn w-full justify-center px-2 py-1 text-[11px] leading-none sm:text-xs"
+                    style={{ padding: "0.35rem 0.5rem", fontSize: "0.68rem", lineHeight: 1.1 }}
+                  >
+                    WhatsApp: +244 {AUTHOR_WHATSAPP}
+                  </a>
+                )}
+                <div className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 sm:text-xs">
+                  Localização: <span className="font-semibold text-slate-900">{AUTHOR_LOCATION}</span>
+                </div>
+              </div>
+            </div>
+          </section>
         </section>
       </div>
 
