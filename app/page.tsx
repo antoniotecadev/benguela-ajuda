@@ -749,10 +749,10 @@ export default function Home() {
               const canResolveItem = Boolean(currentUserId && item.authorUid && item.authorUid === currentUserId);
               const canConfirmItem = Boolean(
                 currentUserId &&
-                  item.authorUid &&
-                  item.authorUid !== currentUserId &&
-                  !item.resolvido &&
-                  !(item.confirmationUids ?? []).includes(currentUserId),
+                item.authorUid &&
+                item.authorUid !== currentUserId &&
+                !item.resolvido &&
+                !(item.confirmationUids ?? []).includes(currentUserId),
               );
               const confirmationCount = item.confirmationUids?.length ?? 0;
               const isTopPageItem = topPageIds.includes(item.id);
@@ -879,11 +879,11 @@ export default function Home() {
             </div>
           )}
 
-          <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <section className="rounded-2xl mb-4 border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-2xl">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Autor do site
+                  Autor
                 </p>
                 <h2 className="mt-1 text-base font-semibold text-slate-900 sm:text-lg">
                   {AUTHOR_NAME}
@@ -898,12 +898,33 @@ export default function Home() {
                   >
                     42 Luanda
                   </a>
-                  .
+                  {' '}|
+                  E-mail {' '}
+                  <a
+                    href={`mailto:${AUTHOR_EMAIL}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-slate-900 underline decoration-slate-300 underline-offset-3 transition hover:decoration-slate-900"
+                  >
+                    antonioteca@hotmail.com
+                  </a>
+                  {' '}|
+                  WhatsApp {' '}
+                  {AUTHOR_WHATSAPP_LINK && (
+                    <a
+                      href={AUTHOR_WHATSAPP_LINK}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-slate-900 underline decoration-slate-300 underline-offset-3 transition hover:decoration-slate-900"
+                    >
+                      +244 {AUTHOR_WHATSAPP}
+                    </a>
+                  )}
                 </p>
               </div>
 
               <div className="grid gap-1.5 sm:min-w-72">
-                <a
+                {/* <a
                   href={`mailto:${AUTHOR_EMAIL}`}
                   className="secondary-btn w-full justify-center px-2 py-1 text-[11px] leading-none sm:text-xs"
                   style={{ padding: "0.35rem 0.5rem", fontSize: "0.68rem", lineHeight: 1.1 }}
@@ -920,10 +941,7 @@ export default function Home() {
                   >
                     WhatsApp: +244 {AUTHOR_WHATSAPP}
                   </a>
-                )}
-                <div className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 sm:text-xs">
-                  Localização: <span className="font-semibold text-slate-900">{AUTHOR_LOCATION}</span>
-                </div>
+                )} */}
               </div>
             </div>
           </section>
