@@ -64,6 +64,26 @@ const URGENCY_STYLES: Record<Urgency, string> = {
   APOIO: "border-sky-300 bg-sky-100 text-sky-900",
 };
 
+const LABEL_TIPO: Record<RequestType, string> = {
+  PEDIDO: "Pedido",
+  OFERTA: "Oferta",
+};
+
+const LABEL_CATEGORIA: Record<Category, string> = {
+  AGUA: "Água",
+  COMIDA: "Comida",
+  ABRIGO: "Abrigo",
+  TRANSPORTE: "Transporte",
+  SAUDE: "Saúde",
+  OUTRO: "Outro",
+};
+
+const LABEL_URGENCIA: Record<Urgency, string> = {
+  CRITICO: "Crítico",
+  NECESSARIO: "Necessário",
+  APOIO: "Apoio",
+};
+
 function buildWhatsAppLink(raw: string) {
   const digits = raw.replace(/\D/g, "");
 
@@ -140,7 +160,7 @@ export default function Home() {
       },
       (err) => {
         console.error("Erro no mural:", err);
-        setError("Nao foi possivel carregar os dados agora.");
+        setError("Não foi possível carregar os dados agora.");
         setIsLoaded(true);
       },
     );
@@ -174,8 +194,17 @@ export default function Home() {
       return;
     }
 
-    if (!form.descricao.trim() || !form.contacto.trim()) {
-      setError("Descricao e contacto são obrigatorios.");
+    const trimmedNome = form.nome.trim().slice(0, 40);
+    const trimmedDesc = form.descricao.trim().slice(0, 300);
+    const trimmedContacto = form.contacto.trim().slice(0, 20);
+
+    if (!trimmedDesc || !trimmedContacto) {
+      setError("Descrição e contacto são obrigatórios.");
+      return;
+    }
+
+    if (!/^[0-9+\-\s()]+$/.test(trimmedContacto)) {
+      setError("Por favor, insira apenas um número de telefone (ex: 923000000).");
       return;
     }
 
@@ -185,16 +214,16 @@ export default function Home() {
 
       await addDoc(collection(db, "interacoes"), {
         ...form,
-        nome: form.nome.trim(),
-        descricao: form.descricao.trim(),
-        contacto: form.contacto.trim(),
+        nome: trimmedNome,
+        descricao: trimmedDesc,
+        contacto: trimmedContacto,
         resolvido: false,
         createdAt: serverTimestamp(),
       });
 
       setForm((current) => ({ ...INITIAL_FORM, localizacao: current.localizacao }));
     } catch {
-      setError("Nao foi possivel publicar agora. Tenta novamente em instantes.");
+      setError("Não foi possível publicar agora. Tenta novamente em instantes.");
     } finally {
       setIsSaving(false);
     }
@@ -208,7 +237,7 @@ export default function Home() {
     try {
       await updateDoc(doc(db, "interacoes", id), { resolvido: true });
     } catch {
-      setError("Nao foi possivel marcar como resolvido.");
+      setError("Não foi possível marcar como resolvido.");
     }
   };
 
@@ -241,7 +270,7 @@ export default function Home() {
       <div className="grid gap-6 lg:grid-cols-[390px_1fr]">
         <section className="card-surface rounded-2xl p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-slate-900">Publicar pedido ou oferta</h2>
-          <p className="mt-1 text-sm text-slate-600">Campos com * são obrigatorios.</p>
+          <p className="mt-1 text-sm text-slate-600">Campos com * são obrigatórios.</p>
 
           <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
             <label className="block">
@@ -251,6 +280,7 @@ export default function Home() {
                 onChange={(event) => setForm((prev) => ({ ...prev, nome: event.target.value }))}
                 className="input"
                 placeholder="Ex: Ana"
+                maxLength={40}
               />
             </label>
 
@@ -269,7 +299,7 @@ export default function Home() {
                 </select>
               </label>
               <label className="block">
-                <span className="label">Urgencia *</span>
+                <span className="label">Urgência *</span>
                 <select
                   value={form.urgencia}
                   onChange={(event) =>
@@ -321,26 +351,39 @@ export default function Home() {
             </div>
 
             <label className="block">
-              <span className="label">Descricao *</span>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="label !mb-0">Descrição *</span>
+                <span className="text-xs text-slate-400">
+                  {300 - form.descricao.length} caracteres
+                </span>
+              </div>
               <textarea
                 value={form.descricao}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, descricao: event.target.value }))
+                  setForm((prev) => ({ ...prev, descricao: event.target.value.slice(0, 300) }))
                 }
                 className="input min-h-24"
                 placeholder="Ex: Preciso de transporte para 2 idosos para zona alta."
+                required
+                maxLength={300}
               />
             </label>
 
             <label className="block">
               <span className="label">Contacto (telefone ou WhatsApp) *</span>
               <input
+                type="tel"
                 value={form.contacto}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, contacto: event.target.value }))
+                  setForm((prev) => ({
+                    ...prev,
+                    contacto: event.target.value.replace(/[^0-9+\-\s()]/g, "").slice(0, 20),
+                  }))
                 }
                 className="input"
                 placeholder="Ex: 923000000"
+                required
+                maxLength={20}
               />
             </label>
 
@@ -419,15 +462,15 @@ export default function Home() {
                 <li key={item.id} className="card-surface rounded-2xl p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
-                      {item.tipo}
-                    </span>
-                    <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
-                      {item.categoria}
-                    </span>
-                    <span
-                      className={`rounded-full border px-2 py-1 text-xs font-semibold ${URGENCY_STYLES[item.urgencia]}`}
-                    >
-                      {item.urgencia}
+                        {LABEL_TIPO[item.tipo]}
+                      </span>
+                      <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                        {LABEL_CATEGORIA[item.categoria]}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2 py-1 text-xs font-semibold ${URGENCY_STYLES[item.urgencia]}`}
+                      >
+                        {LABEL_URGENCIA[item.urgencia]}
                     </span>
                     <span className="text-xs text-slate-500">{item.localizacao}</span>
                     {item.resolvido && (
@@ -440,7 +483,7 @@ export default function Home() {
                   <p className="mt-3 text-sm text-slate-800">{item.descricao}</p>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span>{item.nome || "Anonimo"}</span>
+                    <span>{item.nome || "Anónimo"}</span>
                     <span>•</span>
                     <span>{dateText}</span>
                     <span>•</span>
@@ -465,7 +508,7 @@ export default function Home() {
                         className="resolve-btn"
                         onClick={() => markAsResolved(item.id)}
                       >
-                        Ja resolvido
+                        Já resolvido
                       </button>
                     )}
                   </div>
