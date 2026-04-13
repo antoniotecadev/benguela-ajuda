@@ -773,7 +773,7 @@ export default function HomeClient() {
                     {!item.resolvido && canConfirmItem && (
                       <button
                         type="button"
-                        className="sms-btn w-full sm:w-auto"
+                        className="primary-btn w-full sm:w-auto"
                         onClick={() => confirmResolution(item.id)}
                       >
                         Confirmar
