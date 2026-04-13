@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
+  onSnapshot,
   doc,
   DocumentData,
   getDocs,
@@ -150,9 +151,10 @@ export default function Home() {
   const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMoreItems, setHasMoreItems] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [topPageIds, setTopPageIds] = useState<string[]>([]);
   const [localFilter, setLocalFilter] = useState("TODOS");
   const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
-  const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVOS" | "RESOLVIDOS">(
+  const [statusFilter, setStatusFilter] = useState<"TODOS" | "ACTIVOS" | "RESOLVIDOS">(
     "TODOS",
   );
 
@@ -187,40 +189,6 @@ export default function Home() {
 
       return rightTime - leftTime;
     });
-  };
-
-  const loadFirstPage = async () => {
-    if (!db) {
-      return;
-    }
-
-    setIsLoaded(false);
-    setError(null);
-
-    try {
-      const firstPageQuery = query(
-        collection(db, "interacoes"),
-        orderBy("createdAt", "desc"),
-        limit(PAGE_SIZE),
-      );
-      const snapshot = await getDocs(firstPageQuery);
-      const docs = snapshot.docs.map((item) => {
-        const data = item.data() as Omit<Interaction, "id">;
-        return {
-          ...data,
-          id: item.id,
-        };
-      });
-
-      setItems(docs);
-      setLastVisible(snapshot.docs[snapshot.docs.length - 1] ?? null);
-      setHasMoreItems(snapshot.docs.length === PAGE_SIZE);
-    } catch (err) {
-      console.error("Erro no mural:", err);
-      setError("Não foi possível carregar os dados agora.");
-    } finally {
-      setIsLoaded(true);
-    }
   };
 
   const loadMoreItems = async () => {
@@ -288,12 +256,49 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    void loadFirstPage();
+    if (!hasFirebaseConfig || !db) {
+      return;
+    }
+
+    setIsLoaded(false);
+    setError(null);
+
+    const firstPageQuery = query(
+      collection(db, "interacoes"),
+      orderBy("createdAt", "desc"),
+      limit(PAGE_SIZE),
+    );
+
+    const unsubscribe = onSnapshot(
+      firstPageQuery,
+      (snapshot) => {
+        const docs = snapshot.docs.map((item) => {
+          const data = item.data() as Omit<Interaction, "id">;
+          return {
+            ...data,
+            id: item.id,
+          };
+        });
+
+        setItems((current) => mergePageItems(current, docs));
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1] ?? null);
+        setHasMoreItems(snapshot.docs.length === PAGE_SIZE);
+        setTopPageIds(snapshot.docs.map((item) => item.id));
+        setIsLoaded(true);
+      },
+      (err) => {
+        console.error("Erro no mural:", err);
+        setError("Não foi possível carregar os dados agora.");
+        setIsLoaded(true);
+      },
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (statusFilter === "ATIVOS" && item.resolvido) {
+      if (statusFilter === "ACTIVOS" && item.resolvido) {
         return false;
       }
 
@@ -366,7 +371,6 @@ export default function Home() {
       });
 
       setForm((current) => ({ ...INITIAL_FORM, localizacao: current.localizacao }));
-      await loadFirstPage();
     } catch {
       setError("Não foi possível publicar agora. Tenta novamente em instantes.");
     } finally {
@@ -661,12 +665,12 @@ export default function Home() {
                 <select
                   value={statusFilter}
                   onChange={(event) =>
-                    setStatusFilter(event.target.value as "TODOS" | "ATIVOS" | "RESOLVIDOS")
+                    setStatusFilter(event.target.value as "TODOS" | "ACTIVOS" | "RESOLVIDOS")
                   }
                   className="input"
                 >
                   <option value="TODOS">Todos</option>
-                  <option value="ATIVOS">Ver apenas activos</option>
+                  <option value="ACTIVOS">Ver apenas activos</option>
                   <option value="RESOLVIDOS">Ver apenas resolvidos</option>
                 </select>
               </label>
@@ -700,10 +704,17 @@ export default function Home() {
                   !(item.confirmationUids ?? []).includes(currentUserId),
               );
               const confirmationCount = item.confirmationUids?.length ?? 0;
+              const isTopPageItem = topPageIds.includes(item.id);
+              const isHistoricalItem = !isTopPageItem;
 
               return (
                 <li key={item.id} className="card-surface rounded-2xl p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold ${isTopPageItem ? "border-emerald-300 bg-emerald-100 text-emerald-900" : "border-slate-200 bg-slate-50 text-slate-500"}`}
+                    >
+                      {isTopPageItem ? "Novo" : "Histórico"}
+                    </span>
                     <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
                       {LABEL_TIPO[item.tipo]}
                     </span>
@@ -719,11 +730,18 @@ export default function Home() {
                     <span
                       className={`rounded-full border px-2 py-1 text-xs font-semibold ${item.resolvido ? STATUS_STYLES.resolvido : STATUS_STYLES.ativo}`}
                     >
-                      {item.resolvido ? "Resolvido" : "Ativo"}
+                      {item.resolvido ? "Resolvido" : "Activo"}
                     </span>
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
-                      Protegido contra falsos positivos
-                    </span>
+                    {isTopPageItem && (
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+                        Destaque em tempo real
+                      </span>
+                    )}
+                    {isHistoricalItem && (
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500">
+                        Carregado por página
+                      </span>
+                    )}
                     <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
                       {confirmationCount} confirmações
                     </span>
