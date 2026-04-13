@@ -22,14 +22,68 @@ Guia detalhado: ver `FIREBASE_SETUP.md`.
 
 ## 2) Regras Firestore (arranque rapido)
 
-Para lancar de imediato, podes comecar com regras de escrita/leitura abertas e depois endurecer.
+Com autenticação anónima, mantém a leitura pública e exige login para escrever.
+As regras abaixo também limitam o formato dos dados para evitar lixo no Firestore e só
+permitem alterar um registo para `resolvido: true`.
 
 ```txt
 rules_version = '2';
 service cloud.firestore {
 	match /databases/{database}/documents {
-		match /interacoes/{doc} {
-			allow read, write: if true;
+		function isSignedIn() {
+			return request.auth != null;
+		}
+
+		function isStringWithinLimit(field, maxLength) {
+			return field is string && field.size() > 0 && field.size() <= maxLength;
+		}
+
+		function isValidDocument(data) {
+			return data.keys().hasOnly([
+					"nome",
+					"localizacao",
+					"tipo",
+					"categoria",
+					"urgencia",
+					"descricao",
+					"contacto",
+					"resolvido",
+					"createdAt"
+				])
+				&& isStringWithinLimit(data.nome, 40)
+				&& isStringWithinLimit(data.localizacao, 60)
+				&& isStringWithinLimit(data.tipo, 10)
+				&& isStringWithinLimit(data.categoria, 20)
+				&& isStringWithinLimit(data.urgencia, 15)
+				&& isStringWithinLimit(data.descricao, 300)
+				&& isStringWithinLimit(data.contacto, 12)
+				&& data.contacto.matches('^[0-9]{9}$|^244[0-9]{9}$')
+				&& data.resolvido is bool;
+		}
+
+		function canCreatePost(data) {
+			return isSignedIn() && isValidDocument(data) && data.resolvido == false;
+		}
+
+		function canResolvePost() {
+			return isSignedIn()
+				&& resource.data.resolvido == false
+				&& request.resource.data.resolvido == true
+				&& request.resource.data.nome == resource.data.nome
+				&& request.resource.data.localizacao == resource.data.localizacao
+				&& request.resource.data.tipo == resource.data.tipo
+				&& request.resource.data.categoria == resource.data.categoria
+				&& request.resource.data.urgencia == resource.data.urgencia
+				&& request.resource.data.descricao == resource.data.descricao
+				&& request.resource.data.contacto == resource.data.contacto
+				&& request.resource.data.createdAt == resource.data.createdAt;
+		}
+
+		match /interacoes/{docId} {
+			allow read: if true;
+			allow create: if canCreatePost(request.resource.data);
+			allow update: if canResolvePost();
+			allow delete: if false;
 		}
 	}
 }
