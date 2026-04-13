@@ -87,12 +87,29 @@ const LABEL_URGENCIA: Record<Urgency, string> = {
 function buildWhatsAppLink(raw: string) {
   const digits = raw.replace(/\D/g, "");
 
-  if (!digits) {
-    return null;
+  if (digits.length === 9) {
+    return `https://wa.me/244${digits}`;
   }
 
-  const normalized = digits.startsWith("244") ? digits : `244${digits}`;
-  return `https://wa.me/${normalized}`;
+  if (digits.length === 12 && digits.startsWith("244")) {
+    return `https://wa.me/${digits}`;
+  }
+
+  return null;
+}
+
+function normalizeAngolaPhoneNumber(raw: string) {
+  const digits = raw.replace(/\D/g, "");
+
+  if (digits.length === 9) {
+    return digits;
+  }
+
+  if (digits.length === 12 && digits.startsWith("244")) {
+    return digits;
+  }
+
+    return null;
 }
 
 export default function Home() {
@@ -196,20 +213,21 @@ export default function Home() {
 
     const trimmedNome = form.nome.trim().slice(0, 40);
     const trimmedDesc = form.descricao.trim().slice(0, 300);
-    const trimmedContacto = form.contacto.trim().slice(0, 20);
+    const trimmedContacto = form.contacto.trim().slice(0, 12);
+    const normalizedContacto = normalizeAngolaPhoneNumber(trimmedContacto);
 
-    if (form.nome.length > 40 || form.descricao.length > 300 || form.contacto.length > 15) {
+    if (form.nome.length > 40 || form.descricao.length > 300 || form.contacto.length > 12) {
       setError("Revê os limites dos campos antes de publicar.");
       return;
     }
 
-    if (!trimmedDesc || !trimmedContacto) {
+    if (!trimmedDesc || !normalizedContacto) {
       setError("Descrição e contacto são obrigatórios.");
       return;
     }
 
-    if (!/^\d+$/.test(trimmedContacto)) {
-      setError("Por favor, insira apenas um número de telefone (ex: 923000000).");
+    if (!normalizedContacto) {
+      setError("Por favor, insira um número válido: 9 dígitos ou 244 + 9 dígitos.");
       return;
     }
 
@@ -221,7 +239,7 @@ export default function Home() {
         ...form,
         nome: trimmedNome,
         descricao: trimmedDesc,
-        contacto: trimmedContacto,
+        contacto: normalizedContacto,
         resolvido: false,
         createdAt: serverTimestamp(),
       });
@@ -385,18 +403,22 @@ export default function Home() {
                 type="tel"
                 inputMode="numeric"
                 pattern="[0-9]*"
+                autoComplete="tel-national"
                 value={form.contacto}
                 onChange={(event) =>
                   setForm((prev) => ({
                     ...prev,
-                    contacto: event.target.value.replace(/\D/g, "").slice(0, 15),
+                    contacto: event.target.value.replace(/\D/g, "").slice(0, 12),
                   }))
                 }
                 className="input"
-                placeholder="Ex: 923000000"
+                placeholder="Ex: 923000000 ou 244923000000"
                 required
-                maxLength={15}
+                maxLength={12}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Aceitamos apenas números válidos de Angola: 923000000 ou 244923000000.
+              </p>
             </label>
 
             <button type="submit" className="primary-btn w-full" disabled={isSaving}>
