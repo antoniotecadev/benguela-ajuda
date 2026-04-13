@@ -84,6 +84,11 @@ const LABEL_URGENCIA: Record<Urgency, string> = {
   APOIO: "Apoio",
 };
 
+const STATUS_STYLES = {
+  ativo: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  resolvido: "border-slate-200 bg-slate-100 text-slate-700",
+} as const;
+
 function buildWhatsAppLink(raw: string) {
   const digits = raw.replace(/\D/g, "");
 
@@ -109,7 +114,7 @@ function normalizeAngolaPhoneNumber(raw: string) {
     return digits;
   }
 
-    return null;
+  return null;
 }
 
 export default function Home() {
@@ -121,6 +126,24 @@ export default function Home() {
   const [localFilter, setLocalFilter] = useState("TODOS");
   const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
   const [hideResolved, setHideResolved] = useState(true);
+
+  const scrollToBoard = () => {
+    document.getElementById("mural-board")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const scrollToPublishForm = () => {
+    document.getElementById("publish-form")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ behavior: "smooth", top: 0 });
+  };
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
@@ -203,6 +226,10 @@ export default function Home() {
     });
   }, [hideResolved, items, localFilter, typeFilter]);
 
+  const visibleCount = filteredItems.length;
+  const activeCount = filteredItems.filter((item) => !item.resolvido).length;
+  const resolvedCount = filteredItems.filter((item) => item.resolvido).length;
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -265,24 +292,27 @@ export default function Home() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-10">
-      <header className="hero-panel rounded-2xl p-5 sm:p-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-3 pb-24 pt-4 sm:gap-8 sm:px-6 sm:py-10">
+      <header className="hero-panel rounded-2xl p-4 sm:p-8">
         <p className="text-xs tracking-[0.2em] text-slate-200/90">BENGUELA AJUDA</p>
-        <h1 className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-4xl">
+        <h1 className="mt-2 text-2xl font-semibold leading-tight text-white sm:mt-3 sm:text-4xl">
           Mural de Solidariedade: Tenho / Preciso
         </h1>
-        <p className="mt-4 max-w-3xl text-sm text-slate-200 sm:text-base">
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-200 sm:mt-4 sm:text-base">
           Publica rapidamente pedidos e ofertas de apoio em Benguela. Prioriza mensagens curtas,
           localização correta e contacto activo no WhatsApp.
         </p>
       </header>
-
-      {!hasFirebaseConfig && (
-        <section className="rounded-xl border border-amber-300 bg-amber-100 p-4 text-sm text-amber-900">
-          Firebase ainda não configurado. Define variaveis NEXT_PUBLIC_FIREBASE_* para ativar o
-          mural em tempo real.
-        </section>
-      )}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-10px_30px_rgba(16,36,61,0.12)] backdrop-blur sm:hidden">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3">
+          <button type="button" onClick={scrollToBoard} className="secondary-btn w-full py-3 text-sm">
+            Ver mural
+          </button>
+          <button type="button" onClick={scrollToPublishForm} className="primary-btn w-full py-3 text-sm">
+            Publicar
+          </button>
+        </div>
+      </div>
 
       {hasFirebaseConfig && !isLoaded && (
         <section className="rounded-xl border border-slate-300 bg-white/80 p-4 text-sm text-slate-700">
@@ -290,8 +320,8 @@ export default function Home() {
         </section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[390px_1fr]">
-        <section className="card-surface rounded-2xl p-4 sm:p-6">
+      <div className="grid gap-5 lg:grid-cols-[390px_1fr]">
+        <section id="publish-form" className="card-surface rounded-2xl p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-slate-900">Publicar pedido ou oferta</h2>
           <p className="mt-1 text-sm text-slate-600">Campos com * são obrigatórios.</p>
 
@@ -421,15 +451,20 @@ export default function Home() {
               </p>
             </label>
 
-            <button type="submit" className="primary-btn w-full" disabled={isSaving}>
+            <button type="submit" className="primary-btn w-full py-3 sm:py-2" disabled={isSaving}>
               {isSaving ? "A publicar..." : "Publicar agora"}
             </button>
           </form>
         </section>
 
-        <section className="space-y-4">
+        <section id="mural-board" className="space-y-4">
           <div className="card-surface rounded-2xl p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Filtrar mural</h2>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold text-slate-900">Filtrar mural</h2>
+              <p className="text-xs text-slate-500">
+                Cada publicação é fixa: depois de criada, só pode ser marcada como resolvida.
+              </p>
+            </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <label className="block">
                 <span className="label">Tipo</span>
@@ -462,7 +497,7 @@ export default function Home() {
                 </select>
               </label>
 
-              <label className="flex items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 pb-3 pt-6">
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 sm:items-end sm:pb-3 sm:pt-6">
                 <input
                   type="checkbox"
                   checked={hideResolved}
@@ -507,11 +542,11 @@ export default function Home() {
                       {LABEL_URGENCIA[item.urgencia]}
                     </span>
                     <span className="text-xs text-slate-500">{item.localizacao}</span>
-                    {item.resolvido && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-900">
-                        Resolvido
-                      </span>
-                    )}
+                    <span
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold ${item.resolvido ? STATUS_STYLES.resolvido : STATUS_STYLES.ativo}`}
+                    >
+                      {item.resolvido ? "Resolvido" : "Ativo"}
+                    </span>
                   </div>
 
                   <p className="mt-3 text-sm text-slate-800">{item.descricao}</p>
@@ -524,13 +559,13 @@ export default function Home() {
                     <span>{item.contacto}</span>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
                     {whatsappLink && (
                       <a
                         href={whatsappLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="secondary-btn"
+                        className="secondary-btn w-full text-center sm:w-auto"
                       >
                         Contactar no WhatsApp
                       </a>
@@ -539,7 +574,7 @@ export default function Home() {
                     {!item.resolvido && (
                       <button
                         type="button"
-                        className="resolve-btn"
+                        className="resolve-btn w-full sm:w-auto"
                         onClick={() => markAsResolved(item.id)}
                       >
                         Já resolvido
@@ -551,6 +586,27 @@ export default function Home() {
             })}
           </ul>
         </section>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-10px_30px_rgba(16,36,61,0.12)] backdrop-blur sm:hidden">
+        <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_auto_auto] items-center gap-2">
+          <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Visíveis</p>
+            <p className="truncate text-sm font-semibold text-slate-900">{visibleCount} registos</p>
+            <p className="text-[11px] text-slate-500">
+              {activeCount} ativos · {resolvedCount} resolvidos
+            </p>
+          </div>
+          <button type="button" onClick={scrollToBoard} className="secondary-btn px-4 py-3 text-sm">
+            Filtrar
+          </button>
+          <button type="button" onClick={scrollToTop} className="secondary-btn px-4 py-3 text-sm">
+            Topo
+          </button>
+          <button type="button" onClick={scrollToPublishForm} className="primary-btn px-4 py-3 text-sm">
+            Publicar
+          </button>
+        </div>
       </div>
     </div>
   );
