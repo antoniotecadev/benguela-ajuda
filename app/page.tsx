@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   addDoc,
   collection,
@@ -465,6 +466,46 @@ export default function Home() {
           localização correta e contacto activo no WhatsApp.
         </p>
       </header>
+
+      <section className="card-surface overflow-hidden rounded-2xl">
+        <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="relative min-h-[220px] sm:min-h-[280px] lg:min-h-[340px]">
+            <Image
+              src="/benguela-ajuda-1.jpg"
+              alt="Bombeiros e policias a ajudar senhoras a atravessar aguas da inundacao em Benguela, com outras pessoas com agua ate ao peito ao lado"
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 55vw"
+              className="object-cover"
+            />
+          </div>
+          <div className="flex flex-col justify-center gap-3 p-4 sm:p-6 lg:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Situação no terreno
+            </p>
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">
+              Resposta rápida para quem está em risco
+            </h2>
+            <p className="text-sm leading-6 text-slate-600 sm:text-base">
+              Esta imagem mostra a urgência de ligar pedidos, ofertas e apoio real no mesmo
+              momento. O mural foi desenhado para funcionar bem no telemóvel, mesmo com pouca
+              infraestrutura.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                Chamada normal
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                SMS
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                WhatsApp
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-10px_30px_rgba(16,36,61,0.12)] backdrop-blur sm:hidden">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3">
           <button type="button" onClick={scrollToBoard} className="secondary-btn w-full py-3 text-sm">
