@@ -125,7 +125,9 @@ export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [localFilter, setLocalFilter] = useState("TODOS");
   const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
-  const [hideResolved, setHideResolved] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVOS" | "RESOLVIDOS">(
+    "TODOS",
+  );
 
   const scrollToBoard = () => {
     document.getElementById("mural-board")?.scrollIntoView({
@@ -210,7 +212,11 @@ export default function Home() {
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (hideResolved && item.resolvido) {
+      if (statusFilter === "ATIVOS" && item.resolvido) {
+        return false;
+      }
+
+      if (statusFilter === "RESOLVIDOS" && !item.resolvido) {
         return false;
       }
 
@@ -224,7 +230,7 @@ export default function Home() {
 
       return true;
     });
-  }, [hideResolved, items, localFilter, typeFilter]);
+  }, [items, localFilter, statusFilter, typeFilter]);
 
   const visibleCount = filteredItems.length;
   const activeCount = filteredItems.filter((item) => !item.resolvido).length;
@@ -497,13 +503,19 @@ export default function Home() {
                 </select>
               </label>
 
-              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 sm:items-end sm:pb-3 sm:pt-6">
-                <input
-                  type="checkbox"
-                  checked={hideResolved}
-                  onChange={(event) => setHideResolved(event.target.checked)}
-                />
-                <span className="text-sm text-slate-700">Esconder resolvidos</span>
+              <label className="block">
+                <span className="label">Estado</span>
+                <select
+                  value={statusFilter}
+                  onChange={(event) =>
+                    setStatusFilter(event.target.value as "TODOS" | "ATIVOS" | "RESOLVIDOS")
+                  }
+                  className="input"
+                >
+                  <option value="TODOS">Todos</option>
+                  <option value="ATIVOS">Ver apenas activos</option>
+                  <option value="RESOLVIDOS">Ver apenas resolvidos</option>
+                </select>
               </label>
             </div>
           </div>
@@ -515,12 +527,6 @@ export default function Home() {
           )}
 
           <ul className="space-y-3">
-            {filteredItems.length === 0 && (
-              <li className="card-surface rounded-2xl p-6 text-sm text-slate-600">
-                Sem registos para este filtro neste momento.
-              </li>
-            )}
-
             {filteredItems.map((item) => {
               const whatsappLink = buildWhatsAppLink(item.contacto);
               const dateText = item.createdAt?.seconds
