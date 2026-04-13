@@ -457,19 +457,19 @@ export default function Home() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-3 pb-24 pt-4 sm:gap-8 sm:px-6 sm:py-10">
       <header className="hero-panel rounded-2xl p-4 sm:p-8">
-        <p className="text-xs tracking-[0.2em] text-slate-200/90">BENGUELA AJUDA</p>
+        <p className="text-xs tracking-[0.2em] text-slate-200/90">BENGUELA, ANGOLA</p>
         <h1 className="mt-2 text-2xl font-semibold leading-tight text-white sm:mt-3 sm:text-4xl">
-          Mural de Solidariedade: Tenho / Preciso
+          Benguela Ajuda: mural solidário para pedidos e ofertas em Benguela, Angola
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-200 sm:mt-4 sm:text-base">
-          Publica rapidamente pedidos e ofertas de apoio em Benguela. Prioriza mensagens curtas,
-          localização correta e contacto activo no WhatsApp.
+          Encontra pedidos e ofertas de apoio em Benguela, Angola. O mural é leve, funciona bem
+          no telemóvel e liga água, comida, abrigo, transporte e contacto direto entre pessoas.
         </p>
       </header>
 
       <section className="card-surface overflow-hidden rounded-2xl">
         <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="relative min-h-[220px] sm:min-h-[280px] lg:min-h-[340px]">
+          <div className="relative min-h-55 sm:min-h-70 lg:min-h-85">
             <Image
               src="/benguela-ajuda-1.jpg"
               alt="Bombeiros e policias a ajudar senhoras a atravessar aguas da inundacao em Benguela, com outras pessoas com agua ate ao peito ao lado"
@@ -481,15 +481,15 @@ export default function Home() {
           </div>
           <div className="flex flex-col justify-center gap-3 p-4 sm:p-6 lg:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Situação no terreno
+              Benguela, Angola
             </p>
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-              Resposta rápida para quem está em risco
+              Resposta rápida para quem precisa de apoio em Benguela, Angola
             </h2>
             <p className="text-sm leading-6 text-slate-600 sm:text-base">
               Esta imagem mostra a urgência de ligar pedidos, ofertas e apoio real no mesmo
               momento. O mural foi desenhado para funcionar bem no telemóvel, mesmo com pouca
-              infraestrutura.
+              infraestrutura, e para ajudar quem procura resposta rápida em Benguela, Angola.
             </p>
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
@@ -525,7 +525,9 @@ export default function Home() {
 
       <div className="grid gap-5 lg:grid-cols-[390px_1fr]">
         <section id="publish-form" className="card-surface rounded-2xl p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-slate-900">Publicar pedido ou oferta</h2>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Publicar pedido ou oferta em Benguela
+          </h2>
           <p className="mt-1 text-sm text-slate-600">Campos com * são obrigatórios.</p>
 
           <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
@@ -663,7 +665,9 @@ export default function Home() {
         <section id="mural-board" className="space-y-4">
           <div className="card-surface rounded-2xl p-4 sm:p-6">
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-slate-900">Filtrar mural</h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Filtrar mural de Benguela
+              </h2>
               <div className="mt-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 <strong className="font-semibold">Importante:</strong> cada publicação é fixa.
                 Só o autor ou 2 confirmações independentes podem marcar como resolvida.
