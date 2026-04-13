@@ -1,65 +1,491 @@
-import Image from "next/image";
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  addDoc,
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
+import { auth, db, hasFirebaseConfig } from "@/lib/firebase";
+
+type RequestType = "PEDIDO" | "OFERTA";
+type Category = "AGUA" | "COMIDA" | "ABRIGO" | "TRANSPORTE" | "SAUDE" | "OUTRO";
+type Urgency = "CRITICO" | "NECESSARIO" | "APOIO";
+
+type PostForm = {
+  nome: string;
+  localizacao: string;
+  tipo: RequestType;
+  categoria: Category;
+  urgencia: Urgency;
+  descricao: string;
+  contacto: string;
+};
+
+type Interaction = PostForm & {
+  id: string;
+  resolvido: boolean;
+  createdAt?: {
+    seconds: number;
+  };
+};
+
+const BAIRROS = [
+  "Bairro das Bimbas",
+  "Calomanga",
+  "Caloburaco",
+  "Tchipiandalo",
+  "Massangarala",
+  "Cotel",
+  "Santa Teresa",
+  "Centro de Benguela",
+  "Outra zona",
+];
+
+const INITIAL_FORM: PostForm = {
+  nome: "",
+  localizacao: "Bairro das Bimbas",
+  tipo: "PEDIDO",
+  categoria: "AGUA",
+  urgencia: "NECESSARIO",
+  descricao: "",
+  contacto: "",
+};
+
+const URGENCY_STYLES: Record<Urgency, string> = {
+  CRITICO: "border-red-300 bg-red-100 text-red-900",
+  NECESSARIO: "border-amber-300 bg-amber-100 text-amber-900",
+  APOIO: "border-sky-300 bg-sky-100 text-sky-900",
+};
+
+function buildWhatsAppLink(raw: string) {
+  const digits = raw.replace(/\D/g, "");
+
+  if (!digits) {
+    return null;
+  }
+
+  const normalized = digits.startsWith("244") ? digits : `244${digits}`;
+  return `https://wa.me/${normalized}`;
+}
 
 export default function Home() {
+  const [form, setForm] = useState<PostForm>(INITIAL_FORM);
+  const [items, setItems] = useState<Interaction[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [localFilter, setLocalFilter] = useState("TODOS");
+  const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
+  const [hideResolved, setHideResolved] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => reg.unregister());
+      });
+      return;
+    }
+
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Silent fail: app must still work without service worker.
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!hasFirebaseConfig || !auth) {
+      return;
+    }
+
+    let active = true;
+
+    signInAnonymously(auth)
+      .then(() => {
+        if (active) {
+          setAuthReady(true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setError("Falha ao autenticar anonimamente no Firebase.");
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasFirebaseConfig || !db || !authReady) {
+      return;
+    }
+
+    const unsub = onSnapshot(
+      query(collection(db, "interacoes"), limit(150)),
+      (snapshot) => {
+        const docs = snapshot.docs.map((item) => {
+          const data = item.data() as Omit<Interaction, "id">;
+          return {
+            ...data,
+            id: item.id,
+          };
+        });
+
+        setItems(
+          docs.sort((left, right) => {
+            const leftTime = left.createdAt?.seconds ?? 0;
+            const rightTime = right.createdAt?.seconds ?? 0;
+
+            return rightTime - leftTime;
+          }),
+        );
+      },
+      () => {
+        setError("Nao foi possivel carregar os dados agora.");
+      },
+    );
+
+    return () => unsub();
+  }, [authReady]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (hideResolved && item.resolvido) {
+        return false;
+      }
+
+      if (localFilter !== "TODOS" && item.localizacao !== localFilter) {
+        return false;
+      }
+
+      if (typeFilter !== "TODOS" && item.tipo !== typeFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [hideResolved, items, localFilter, typeFilter]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!hasFirebaseConfig || !db) {
+      setError("Configura o Firebase para publicar pedidos e ofertas.");
+      return;
+    }
+
+    if (!form.descricao.trim() || !form.contacto.trim()) {
+      setError("Descricao e contacto são obrigatorios.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      await addDoc(collection(db, "interacoes"), {
+        ...form,
+        nome: form.nome.trim(),
+        descricao: form.descricao.trim(),
+        contacto: form.contacto.trim(),
+        resolvido: false,
+        createdAt: serverTimestamp(),
+      });
+
+      setForm((current) => ({ ...INITIAL_FORM, localizacao: current.localizacao }));
+    } catch {
+      setError("Nao foi possivel publicar agora. Tenta novamente em instantes.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const markAsResolved = async (id: string) => {
+    if (!db) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "interacoes", id), { resolvido: true });
+    } catch {
+      setError("Nao foi possivel marcar como resolvido.");
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-10">
+      <header className="hero-panel rounded-2xl p-5 sm:p-8">
+        <p className="text-xs tracking-[0.2em] text-slate-200/90">BENGUELA AJUDA</p>
+        <h1 className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-4xl">
+          Mural de Solidariedade: Tenho / Preciso
+        </h1>
+        <p className="mt-4 max-w-3xl text-sm text-slate-200 sm:text-base">
+          Publica rapidamente pedidos e ofertas de apoio em Benguela. Prioriza mensagens curtas,
+          localização correta e contacto activo no WhatsApp.
+        </p>
+      </header>
+
+      {!hasFirebaseConfig && (
+        <section className="rounded-xl border border-amber-300 bg-amber-100 p-4 text-sm text-amber-900">
+          Firebase ainda não configurado. Define variaveis NEXT_PUBLIC_FIREBASE_* para ativar o
+          mural em tempo real.
+        </section>
+      )}
+
+      {hasFirebaseConfig && !authReady && (
+        <section className="rounded-xl border border-slate-300 bg-white/80 p-4 text-sm text-slate-700">
+          A ligar ao Firebase...
+        </section>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[390px_1fr]">
+        <section className="card-surface rounded-2xl p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-slate-900">Publicar pedido ou oferta</h2>
+          <p className="mt-1 text-sm text-slate-600">Campos com * são obrigatorios.</p>
+
+          <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
+            <label className="block">
+              <span className="label">Nome (opcional)</span>
+              <input
+                value={form.nome}
+                onChange={(event) => setForm((prev) => ({ ...prev, nome: event.target.value }))}
+                className="input"
+                placeholder="Ex: Ana"
+              />
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="label">Tipo *</span>
+                <select
+                  value={form.tipo}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, tipo: event.target.value as RequestType }))
+                  }
+                  className="input"
+                >
+                  <option value="PEDIDO">Preciso de ajuda</option>
+                  <option value="OFERTA">Tenho como ajudar</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="label">Urgencia *</span>
+                <select
+                  value={form.urgencia}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, urgencia: event.target.value as Urgency }))
+                  }
+                  className="input"
+                >
+                  <option value="CRITICO">Crítico</option>
+                  <option value="NECESSARIO">Necessário</option>
+                  <option value="APOIO">Apoio</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="label">Categoria *</span>
+                <select
+                  value={form.categoria}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, categoria: event.target.value as Category }))
+                  }
+                  className="input"
+                >
+                  <option value="AGUA">Água</option>
+                  <option value="COMIDA">Comida</option>
+                  <option value="ABRIGO">Abrigo</option>
+                  <option value="TRANSPORTE">Transporte</option>
+                  <option value="SAUDE">Saúde</option>
+                  <option value="OUTRO">Outro</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="label">Localização *</span>
+                <select
+                  value={form.localizacao}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, localizacao: event.target.value }))
+                  }
+                  className="input"
+                >
+                  {BAIRROS.map((bairro) => (
+                    <option key={bairro} value={bairro}>
+                      {bairro}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="label">Descricao *</span>
+              <textarea
+                value={form.descricao}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, descricao: event.target.value }))
+                }
+                className="input min-h-24"
+                placeholder="Ex: Preciso de transporte para 2 idosos para zona alta."
+              />
+            </label>
+
+            <label className="block">
+              <span className="label">Contacto (telefone ou WhatsApp) *</span>
+              <input
+                value={form.contacto}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, contacto: event.target.value }))
+                }
+                className="input"
+                placeholder="Ex: 923000000"
+              />
+            </label>
+
+            <button type="submit" className="primary-btn w-full" disabled={isSaving}>
+              {isSaving ? "A publicar..." : "Publicar agora"}
+            </button>
+          </form>
+        </section>
+
+        <section className="space-y-4">
+          <div className="card-surface rounded-2xl p-4 sm:p-6">
+            <h2 className="text-lg font-semibold text-slate-900">Filtrar mural</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="block">
+                <span className="label">Tipo</span>
+                <select
+                  value={typeFilter}
+                  onChange={(event) =>
+                    setTypeFilter(event.target.value as "TODOS" | RequestType)
+                  }
+                  className="input"
+                >
+                  <option value="TODOS">Todos</option>
+                  <option value="PEDIDO">Pedidos</option>
+                  <option value="OFERTA">Ofertas</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="label">Bairro</span>
+                <select
+                  value={localFilter}
+                  onChange={(event) => setLocalFilter(event.target.value)}
+                  className="input"
+                >
+                  <option value="TODOS">Todos</option>
+                  {BAIRROS.map((bairro) => (
+                    <option key={bairro} value={bairro}>
+                      {bairro}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 pb-3 pt-6">
+                <input
+                  type="checkbox"
+                  checked={hideResolved}
+                  onChange={(event) => setHideResolved(event.target.checked)}
+                />
+                <span className="text-sm text-slate-700">Esconder resolvidos</span>
+              </label>
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-red-300 bg-red-100 p-3 text-sm text-red-900">
+              {error}
+            </div>
+          )}
+
+          <ul className="space-y-3">
+            {filteredItems.length === 0 && (
+              <li className="card-surface rounded-2xl p-6 text-sm text-slate-600">
+                Sem registos para este filtro neste momento.
+              </li>
+            )}
+
+            {filteredItems.map((item) => {
+              const whatsappLink = buildWhatsAppLink(item.contacto);
+              const dateText = item.createdAt?.seconds
+                ? new Date(item.createdAt.seconds * 1000).toLocaleString("pt-PT")
+                : "agora";
+
+              return (
+                <li key={item.id} className="card-surface rounded-2xl p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                      {item.tipo}
+                    </span>
+                    <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                      {item.categoria}
+                    </span>
+                    <span
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold ${URGENCY_STYLES[item.urgencia]}`}
+                    >
+                      {item.urgencia}
+                    </span>
+                    <span className="text-xs text-slate-500">{item.localizacao}</span>
+                    {item.resolvido && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-900">
+                        Resolvido
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-3 text-sm text-slate-800">{item.descricao}</p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <span>{item.nome || "Anonimo"}</span>
+                    <span>•</span>
+                    <span>{dateText}</span>
+                    <span>•</span>
+                    <span>{item.contacto}</span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {whatsappLink && (
+                      <a
+                        href={whatsappLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="secondary-btn"
+                      >
+                        Contactar no WhatsApp
+                      </a>
+                    )}
+
+                    {!item.resolvido && (
+                      <button
+                        type="button"
+                        className="resolve-btn"
+                        onClick={() => markAsResolved(item.id)}
+                      >
+                        Ja resolvido
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      </div>
     </div>
   );
 }

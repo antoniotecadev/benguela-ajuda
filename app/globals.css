@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f7fb;
+  --foreground: #10243d;
+  --panel: rgba(255, 255, 255, 0.88);
+  --line: #d2dbe8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-sora);
+  --font-mono: var(--font-jet-mono);
 }
 
 body {
+  min-height: 100vh;
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sora), sans-serif;
+  background-image:
+    radial-gradient(circle at 12% 10%, rgba(26, 127, 98, 0.19), transparent 30%),
+    radial-gradient(circle at 88% 0%, rgba(18, 54, 94, 0.24), transparent 22%),
+    linear-gradient(180deg, #edf3fb 0%, #f7fafc 60%, #f4f9f6 100%);
+}
+
+.hero-panel {
+  background:
+    radial-gradient(circle at 88% 16%, rgba(96, 216, 179, 0.25), transparent 32%),
+    linear-gradient(120deg, #12365e 0%, #0f2946 45%, #1a7f62 100%);
+  box-shadow: 0 14px 30px rgba(15, 41, 70, 0.24);
+}
+
+.card-surface {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgba(16, 36, 61, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.label {
+  margin-bottom: 0.35rem;
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #213d5d;
+}
+
+.input {
+  width: 100%;
+  border-radius: 0.72rem;
+  border: 1px solid #ccd7e5;
+  background: #fdfefe;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.95rem;
+  color: #183555;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #1a7f62;
+  box-shadow: 0 0 0 3px rgba(26, 127, 98, 0.14);
+}
+
+.primary-btn,
+.secondary-btn,
+.resolve-btn {
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.95rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.primary-btn {
+  background: linear-gradient(120deg, #1a7f62, #146d9d);
+  color: #fff;
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(20, 109, 157, 0.24);
+}
+
+.primary-btn:disabled {
+  opacity: 0.65;
+}
+
+.secondary-btn {
+  border: 1px solid #0f9d58;
+  background: #e7faef;
+  color: #0e6b43;
+}
+
+.resolve-btn {
+  border: 1px solid #2a5b89;
+  background: #ebf4ff;
+  color: #214f7a;
+}
+
+@media (max-width: 768px) {
+  .hero-panel {
+    animation: pop 380ms ease-out;
+  }
+}
+
+@keyframes pop {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

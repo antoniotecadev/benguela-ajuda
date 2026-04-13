@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Benguela Ajuda
 
-## Getting Started
+MVP de emergencia para ligar rapidamente quem precisa de apoio e quem pode ajudar.
 
-First, run the development server:
+## Funcionalidades
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Publicar `PEDIDO` ou `OFERTA`
+- Filtros por tipo e bairro
+- Etiquetas de urgencia (`CRITICO`, `NECESSARIO`, `APOIO`)
+- Botao de contacto direto via WhatsApp
+- Marcacao comunitaria de `Ja resolvido`
+- PWA basico (instalavel no telemovel)
+
+## 1) Configurar Firebase
+
+1. Cria um projeto no Firebase.
+2. Ativa Authentication com `Anonymous`.
+3. Cria Firestore Database em modo de producao (ou teste para arranque).
+4. Copia `.env.example` para `.env.local` e preenche os valores `NEXT_PUBLIC_FIREBASE_*`.
+
+Guia detalhado: ver `FIREBASE_SETUP.md`.
+
+## 2) Regras Firestore (arranque rapido)
+
+Para lancar de imediato, podes comecar com regras de escrita/leitura abertas e depois endurecer.
+
+```txt
+rules_version = '2';
+service cloud.firestore {
+	match /databases/{database}/documents {
+		match /interacoes/{doc} {
+			allow read, write: if true;
+		}
+	}
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 3) Correr localmente
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Abrir em `http://localhost:3000`.
 
-## Learn More
+## 4) Deploy rapido
 
-To learn more about Next.js, take a look at the following resources:
+1. Publica no GitHub.
+2. Importa na Vercel.
+3. Adiciona as mesmas variaveis de ambiente da `.env.local` na Vercel.
+4. Faz deploy.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estrutura de dados (colecao `interacoes`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```json
+{
+	"tipo": "PEDIDO",
+	"categoria": "TRANSPORTE",
+	"urgencia": "CRITICO",
+	"localizacao": "Tchipiandalo",
+	"descricao": "Preciso de transporte para 2 idosos para zona alta.",
+	"contacto": "923000000",
+	"nome": "",
+	"resolvido": false,
+	"createdAt": "timestamp"
+}
+```
