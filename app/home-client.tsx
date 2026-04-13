@@ -223,10 +223,13 @@ export default function HomeClient() {
     };
 
     useEffect(() => {
+
+        // Registro do service worker para funcionalidades offline e PWA.
         if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
             return;
         }
 
+        // Durante o desenvolvimento, desregistramos qualquer service worker para evitar cache indesejado.
         if (process.env.NODE_ENV !== 'production') {
             navigator.serviceWorker.getRegistrations().then((regs) => {
                 regs.forEach((reg) => reg.unregister());
@@ -234,6 +237,7 @@ export default function HomeClient() {
             return;
         }
 
+        // Em produção, registramos o service worker para melhorar a experiência offline e o desempenho.
         navigator.serviceWorker.register('/sw.js').catch(() => {
             // Silent fail: app must still work without service worker.
         });
