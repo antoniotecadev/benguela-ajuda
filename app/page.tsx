@@ -198,12 +198,17 @@ export default function Home() {
     const trimmedDesc = form.descricao.trim().slice(0, 300);
     const trimmedContacto = form.contacto.trim().slice(0, 20);
 
+    if (form.nome.length > 40 || form.descricao.length > 300 || form.contacto.length > 15) {
+      setError("Revê os limites dos campos antes de publicar.");
+      return;
+    }
+
     if (!trimmedDesc || !trimmedContacto) {
       setError("Descrição e contacto são obrigatórios.");
       return;
     }
 
-    if (!/^[0-9+\-\s()]+$/.test(trimmedContacto)) {
+    if (!/^\d+$/.test(trimmedContacto)) {
       setError("Por favor, insira apenas um número de telefone (ex: 923000000).");
       return;
     }
@@ -274,10 +279,15 @@ export default function Home() {
 
           <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
             <label className="block">
-              <span className="label">Nome (opcional)</span>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="label mb-0!">Nome (opcional)</span>
+                <span className="text-xs text-slate-400">{40 - form.nome.length} restantes</span>
+              </div>
               <input
                 value={form.nome}
-                onChange={(event) => setForm((prev) => ({ ...prev, nome: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, nome: event.target.value.slice(0, 40) }))
+                }
                 className="input"
                 placeholder="Ex: Ana"
                 maxLength={40}
@@ -352,7 +362,7 @@ export default function Home() {
 
             <label className="block">
               <div className="mb-1 flex items-center justify-between">
-                <span className="label !mb-0">Descrição *</span>
+                <span className="label mb-0!">Descrição *</span>
                 <span className="text-xs text-slate-400">
                   {300 - form.descricao.length} caracteres
                 </span>
@@ -373,17 +383,19 @@ export default function Home() {
               <span className="label">Contacto (telefone ou WhatsApp) *</span>
               <input
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={form.contacto}
                 onChange={(event) =>
                   setForm((prev) => ({
                     ...prev,
-                    contacto: event.target.value.replace(/[^0-9+\-\s()]/g, "").slice(0, 20),
+                    contacto: event.target.value.replace(/\D/g, "").slice(0, 15),
                   }))
                 }
                 className="input"
                 placeholder="Ex: 923000000"
                 required
-                maxLength={20}
+                maxLength={15}
               />
             </label>
 
@@ -462,15 +474,15 @@ export default function Home() {
                 <li key={item.id} className="card-surface rounded-2xl p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
-                        {LABEL_TIPO[item.tipo]}
-                      </span>
-                      <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
-                        {LABEL_CATEGORIA[item.categoria]}
-                      </span>
-                      <span
-                        className={`rounded-full border px-2 py-1 text-xs font-semibold ${URGENCY_STYLES[item.urgencia]}`}
-                      >
-                        {LABEL_URGENCIA[item.urgencia]}
+                      {LABEL_TIPO[item.tipo]}
+                    </span>
+                    <span className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                      {LABEL_CATEGORIA[item.categoria]}
+                    </span>
+                    <span
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold ${URGENCY_STYLES[item.urgencia]}`}
+                    >
+                      {LABEL_URGENCIA[item.urgencia]}
                     </span>
                     <span className="text-xs text-slate-500">{item.localizacao}</span>
                     {item.resolvido && (
