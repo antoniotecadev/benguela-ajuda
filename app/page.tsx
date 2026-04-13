@@ -3,13 +3,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   addDoc,
-  doc,
   collection,
+  doc,
+  DocumentData,
+  getDocs,
   limit,
-  onSnapshot,
+  orderBy,
+  QueryDocumentSnapshot,
   query,
-  serverTimestamp,
   runTransaction,
+  serverTimestamp,
+  startAfter,
   updateDoc,
 } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
@@ -92,6 +96,8 @@ const STATUS_STYLES = {
   resolvido: "border-slate-200 bg-slate-100 text-slate-700",
 } as const;
 
+const PAGE_SIZE = 5;
+
 function buildWhatsAppLink(raw: string) {
   const digits = raw.replace(/\D/g, "");
 
@@ -141,6 +147,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMoreItems, setHasMoreItems] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [localFilter, setLocalFilter] = useState("TODOS");
   const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVOS" | "RESOLVIDOS">(
@@ -163,6 +172,88 @@ export default function Home() {
 
   const scrollToTop = () => {
     window.scrollTo({ behavior: "smooth", top: 0 });
+  };
+
+  const mergePageItems = (existing: Interaction[], incoming: Interaction[]) => {
+    const itemMap = new Map(existing.map((item) => [item.id, item]));
+
+    for (const item of incoming) {
+      itemMap.set(item.id, item);
+    }
+
+    return Array.from(itemMap.values()).sort((left, right) => {
+      const leftTime = left.createdAt?.seconds ?? Infinity;
+      const rightTime = right.createdAt?.seconds ?? Infinity;
+
+      return rightTime - leftTime;
+    });
+  };
+
+  const loadFirstPage = async () => {
+    if (!db) {
+      return;
+    }
+
+    setIsLoaded(false);
+    setError(null);
+
+    try {
+      const firstPageQuery = query(
+        collection(db, "interacoes"),
+        orderBy("createdAt", "desc"),
+        limit(PAGE_SIZE),
+      );
+      const snapshot = await getDocs(firstPageQuery);
+      const docs = snapshot.docs.map((item) => {
+        const data = item.data() as Omit<Interaction, "id">;
+        return {
+          ...data,
+          id: item.id,
+        };
+      });
+
+      setItems(docs);
+      setLastVisible(snapshot.docs[snapshot.docs.length - 1] ?? null);
+      setHasMoreItems(snapshot.docs.length === PAGE_SIZE);
+    } catch (err) {
+      console.error("Erro no mural:", err);
+      setError("Não foi possível carregar os dados agora.");
+    } finally {
+      setIsLoaded(true);
+    }
+  };
+
+  const loadMoreItems = async () => {
+    if (!db || !lastVisible || !hasMoreItems || isLoadingMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+
+    try {
+      const nextPageQuery = query(
+        collection(db, "interacoes"),
+        orderBy("createdAt", "desc"),
+        startAfter(lastVisible),
+        limit(PAGE_SIZE),
+      );
+      const snapshot = await getDocs(nextPageQuery);
+      const docs = snapshot.docs.map((item) => {
+        const data = item.data() as Omit<Interaction, "id">;
+        return {
+          ...data,
+          id: item.id,
+        };
+      });
+
+      setItems((current) => mergePageItems(current, docs));
+      setLastVisible(snapshot.docs[snapshot.docs.length - 1] ?? null);
+      setHasMoreItems(snapshot.docs.length === PAGE_SIZE);
+    } catch {
+      setError("Não foi possível carregar mais registos.");
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   useEffect(() => {
@@ -197,39 +288,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!hasFirebaseConfig || !db) {
-      return;
-    }
-
-    const unsub = onSnapshot(
-      query(collection(db, "interacoes"), limit(150)),
-      (snapshot) => {
-        const docs = snapshot.docs.map((item) => {
-          const data = item.data() as Omit<Interaction, "id">;
-          return {
-            ...data,
-            id: item.id,
-          };
-        });
-
-        setItems(
-          docs.sort((left, right) => {
-            const leftTime = left.createdAt?.seconds ?? Infinity;
-            const rightTime = right.createdAt?.seconds ?? Infinity;
-
-            return rightTime - leftTime;
-          }),
-        );
-        setIsLoaded(true);
-      },
-      (err) => {
-        console.error("Erro no mural:", err);
-        setError("Não foi possível carregar os dados agora.");
-        setIsLoaded(true);
-      },
-    );
-
-    return () => unsub();
+    void loadFirstPage();
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -307,6 +366,7 @@ export default function Home() {
       });
 
       setForm((current) => ({ ...INITIAL_FORM, localizacao: current.localizacao }));
+      await loadFirstPage();
     } catch {
       setError("Não foi possível publicar agora. Tenta novamente em instantes.");
     } finally {
@@ -321,6 +381,9 @@ export default function Home() {
 
     try {
       await updateDoc(doc(db, "interacoes", id), { resolvido: true });
+      setItems((current) =>
+        current.map((item) => (item.id === id ? { ...item, resolvido: true } : item)),
+      );
     } catch {
       setError("Não foi possível marcar como resolvido.");
     }
@@ -332,6 +395,7 @@ export default function Home() {
     }
 
     const firestore = db;
+    let confirmationApplied = false;
 
     try {
       await runTransaction(firestore, async (transaction) => {
@@ -352,11 +416,34 @@ export default function Home() {
         const nextConfirmations = [...confirmations, currentUserId];
         const shouldResolve = nextConfirmations.length >= 2;
 
+        confirmationApplied = true;
+
         transaction.update(ref, {
           confirmationUids: nextConfirmations,
           resolvido: shouldResolve,
         });
       });
+
+      if (confirmationApplied) {
+        setItems((current) =>
+          current.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+
+            const confirmations = item.confirmationUids ?? [];
+            const nextConfirmations = confirmations.includes(currentUserId)
+              ? confirmations
+              : [...confirmations, currentUserId];
+
+            return {
+              ...item,
+              confirmationUids: nextConfirmations,
+              resolvido: nextConfirmations.length >= 2 || item.resolvido,
+            };
+          }),
+        );
+      }
     } catch {
       setError("Não foi possível confirmar a resolução.");
     }
@@ -592,6 +679,10 @@ export default function Home() {
             </div>
           )}
 
+          <p className="text-xs text-slate-500">
+            Mostrando os registos mais recentes carregados em páginas de {PAGE_SIZE} itens.
+          </p>
+
           <ul className="space-y-3">
             {filteredItems.map((item) => {
               const whatsappLink = buildWhatsAppLink(item.contacto);
@@ -705,6 +796,19 @@ export default function Home() {
               );
             })}
           </ul>
+
+          {hasMoreItems && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={loadMoreItems}
+                disabled={isLoadingMore}
+                className="secondary-btn w-full py-3 text-sm sm:w-auto"
+              >
+                {isLoadingMore ? "A carregar mais..." : "Carregar mais"}
+              </button>
+            </div>
+          )}
         </section>
       </div>
 
