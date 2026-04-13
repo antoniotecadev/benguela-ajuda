@@ -117,6 +117,20 @@ function normalizeAngolaPhoneNumber(raw: string) {
   return null;
 }
 
+function buildNativeContactLink(raw: string, scheme: "tel" | "sms") {
+  const digits = raw.replace(/\D/g, "");
+
+  if (digits.length === 9) {
+    return `${scheme}:+244${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("244")) {
+    return `${scheme}:+${digits}`;
+  }
+
+  return null;
+}
+
 export default function Home() {
   const [form, setForm] = useState<PostForm>(INITIAL_FORM);
   const [items, setItems] = useState<Interaction[]>([]);
@@ -529,6 +543,8 @@ export default function Home() {
           <ul className="space-y-3">
             {filteredItems.map((item) => {
               const whatsappLink = buildWhatsAppLink(item.contacto);
+              const callLink = buildNativeContactLink(item.contacto, "tel");
+              const smsLink = buildNativeContactLink(item.contacto, "sms");
               const dateText = item.createdAt?.seconds
                 ? new Date(item.createdAt.seconds * 1000).toLocaleString("pt-PT")
                 : "agora";
@@ -566,14 +582,29 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
+                    {callLink && (
+                      <a
+                        href={callLink}
+                        className="call-btn w-full text-center sm:w-auto"
+                      >
+                        Ligar
+                      </a>
+                    )}
+
+                    {smsLink && (
+                      <a href={smsLink} className="sms-btn w-full text-center sm:w-auto">
+                        Mensagem
+                      </a>
+                    )}
+
                     {whatsappLink && (
                       <a
                         href={whatsappLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="secondary-btn w-full text-center sm:w-auto"
+                        className="whatsapp-btn w-full text-center sm:w-auto"
                       >
-                        Contactar no WhatsApp
+                        WhatsApp
                       </a>
                     )}
 
@@ -600,7 +631,7 @@ export default function Home() {
             <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Visíveis</p>
             <p className="truncate text-sm font-semibold text-slate-900">{visibleCount} registos</p>
             <p className="text-[11px] text-slate-500">
-              {activeCount} ativos · {resolvedCount} resolvidos
+              {activeCount} activos · {resolvedCount} resolvidos
             </p>
           </div>
           <button type="button" onClick={scrollToBoard} className="secondary-btn px-4 py-3 text-sm">

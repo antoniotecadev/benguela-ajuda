@@ -67,6 +67,11 @@ body {
 .primary-btn,
 .secondary-btn,
 .resolve-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  text-decoration: none;
   border-radius: 0.75rem;
   padding: 0.6rem 0.95rem;
   font-size: 0.84rem;
@@ -92,6 +97,46 @@ body {
   border: 1px solid #0f9d58;
   background: #e7faef;
   color: #0e6b43;
+}
+
+.call-btn,
+.sms-btn,
+.whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  text-decoration: none;
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.95rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.call-btn {
+  border: 1px solid #0f8b45;
+  background: #eaf9ef;
+  color: #0c6f36;
+}
+
+.sms-btn {
+  border: 1px solid #2f6bff;
+  background: #edf3ff;
+  color: #1d4ed8;
+}
+
+.whatsapp-btn {
+  border: 1px solid #128c7e;
+  background: #e6fbf7;
+  color: #0b6f63;
+}
+
+.call-btn:hover,
+.sms-btn:hover,
+.whatsapp-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(16, 36, 61, 0.12);
 }
 
 .resolve-btn {
