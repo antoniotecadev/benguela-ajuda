@@ -3,12 +3,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   addDoc,
-  collection,
   doc,
+  collection,
   limit,
   onSnapshot,
   query,
   serverTimestamp,
+  runTransaction,
   updateDoc,
 } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
@@ -30,6 +31,8 @@ type PostForm = {
 
 type Interaction = PostForm & {
   id: string;
+  authorUid?: string;
+  confirmationUids?: string[];
   resolvido: boolean;
   createdAt?: {
     seconds: number;
@@ -137,6 +140,7 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [localFilter, setLocalFilter] = useState("TODOS");
   const [typeFilter, setTypeFilter] = useState<"TODOS" | RequestType>("TODOS");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVOS" | "RESOLVIDOS">(
@@ -183,9 +187,13 @@ export default function Home() {
       return;
     }
 
-    signInAnonymously(auth).catch((e) => {
-      console.warn("Aviso Auth Anónima:", e.message);
-    });
+    signInAnonymously(auth)
+      .then((credential) => {
+        setCurrentUserId(credential.user.uid);
+      })
+      .catch((e) => {
+        console.warn("Aviso Auth Anónima:", e.message);
+      });
   }, []);
 
   useEffect(() => {
@@ -263,6 +271,11 @@ export default function Home() {
     const trimmedContacto = form.contacto.trim().slice(0, 12);
     const normalizedContacto = normalizeAngolaPhoneNumber(trimmedContacto);
 
+    if (!currentUserId) {
+      setError("A autenticação ainda não terminou. Tenta novamente em instantes.");
+      return;
+    }
+
     if (form.nome.length > 40 || form.descricao.length > 300 || form.contacto.length > 12) {
       setError("Revê os limites dos campos antes de publicar.");
       return;
@@ -287,6 +300,8 @@ export default function Home() {
         nome: trimmedNome,
         descricao: trimmedDesc,
         contacto: normalizedContacto,
+        authorUid: currentUserId,
+        confirmationUids: [],
         resolvido: false,
         createdAt: serverTimestamp(),
       });
@@ -300,7 +315,7 @@ export default function Home() {
   };
 
   const markAsResolved = async (id: string) => {
-    if (!db) {
+    if (!db || !currentUserId) {
       return;
     }
 
@@ -308,6 +323,42 @@ export default function Home() {
       await updateDoc(doc(db, "interacoes", id), { resolvido: true });
     } catch {
       setError("Não foi possível marcar como resolvido.");
+    }
+  };
+
+  const confirmResolution = async (id: string) => {
+    if (!db || !currentUserId) {
+      return;
+    }
+
+    const firestore = db;
+
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const ref = doc(firestore, "interacoes", id);
+        const snapshot = await transaction.get(ref);
+
+        if (!snapshot.exists()) {
+          return;
+        }
+
+        const data = snapshot.data() as Interaction;
+        const confirmations = data.confirmationUids ?? [];
+
+        if (data.resolvido || data.authorUid === currentUserId || confirmations.includes(currentUserId)) {
+          return;
+        }
+
+        const nextConfirmations = [...confirmations, currentUserId];
+        const shouldResolve = nextConfirmations.length >= 2;
+
+        transaction.update(ref, {
+          confirmationUids: nextConfirmations,
+          resolvido: shouldResolve,
+        });
+      });
+    } catch {
+      setError("Não foi possível confirmar a resolução.");
     }
   };
 
@@ -481,9 +532,10 @@ export default function Home() {
           <div className="card-surface rounded-2xl p-4 sm:p-6">
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-semibold text-slate-900">Filtrar mural</h2>
-              <p className="text-xs text-slate-500">
-                Cada publicação é fixa: depois de criada, só pode ser marcada como resolvida.
-              </p>
+              <div className="mt-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <strong className="font-semibold">Importante:</strong> cada publicação é fixa.
+                Só o autor ou 2 confirmações independentes podem marcar como resolvida.
+              </div>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <label className="block">
@@ -548,6 +600,15 @@ export default function Home() {
               const dateText = item.createdAt?.seconds
                 ? new Date(item.createdAt.seconds * 1000).toLocaleString("pt-PT")
                 : "agora";
+              const canResolveItem = Boolean(currentUserId && item.authorUid && item.authorUid === currentUserId);
+              const canConfirmItem = Boolean(
+                currentUserId &&
+                  item.authorUid &&
+                  item.authorUid !== currentUserId &&
+                  !item.resolvido &&
+                  !(item.confirmationUids ?? []).includes(currentUserId),
+              );
+              const confirmationCount = item.confirmationUids?.length ?? 0;
 
               return (
                 <li key={item.id} className="card-surface rounded-2xl p-4 sm:p-5">
@@ -568,6 +629,12 @@ export default function Home() {
                       className={`rounded-full border px-2 py-1 text-xs font-semibold ${item.resolvido ? STATUS_STYLES.resolvido : STATUS_STYLES.ativo}`}
                     >
                       {item.resolvido ? "Resolvido" : "Ativo"}
+                    </span>
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+                      Protegido contra falsos positivos
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                      {confirmationCount} confirmações
                     </span>
                   </div>
 
@@ -608,7 +675,7 @@ export default function Home() {
                       </a>
                     )}
 
-                    {!item.resolvido && (
+                    {!item.resolvido && canResolveItem && (
                       <button
                         type="button"
                         className="resolve-btn w-full sm:w-auto"
@@ -616,6 +683,22 @@ export default function Home() {
                       >
                         Já resolvido
                       </button>
+                    )}
+
+                    {!item.resolvido && canConfirmItem && (
+                      <button
+                        type="button"
+                        className="sms-btn w-full sm:w-auto"
+                        onClick={() => confirmResolution(item.id)}
+                      >
+                        Confirmar
+                      </button>
+                    )}
+
+                    {!item.resolvido && !canResolveItem && !canConfirmItem && (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-slate-500 sm:w-auto">
+                        Só o autor pode resolver
+                      </span>
                     )}
                   </div>
                 </li>
