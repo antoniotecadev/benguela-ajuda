@@ -2,6 +2,10 @@
 
 MVP de emergencia para ligar rapidamente quem precisa de apoio e quem pode ajudar.
 
+<p align="center">
+  <img src="/public/benguela-ajuda-gif.gif" alt="Demonstração do Sistema" width="700">
+</p>
+
 ## Funcionalidades
 
 - Publicar `PEDIDO` ou `OFERTA`
